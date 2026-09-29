@@ -42,8 +42,9 @@ jobs:
           -p:RepositoryUrl=${{ github.server_url }}/${{ github.repository }}
 
       - name: Push to GitHub Packages
-        run: >
-          dotnet nuget push "artifacts/*.nupkg"
-          --source ${{ env.FEED }}
-          --api-key ${{ secrets.GITHUB_TOKEN }}
-          --skip-duplicate
+        shell: pwsh
+        run: |
+          foreach ($pkg in Get-ChildItem artifacts -Filter *.nupkg) {
+            dotnet nuget push $pkg.FullName --source $env:FEED --api-key ${{ secrets.GITHUB_TOKEN }} --skip-duplicate
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
