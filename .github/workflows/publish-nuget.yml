@@ -1,0 +1,48 @@
+name: Publish NuGet package
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  PROJECT: source/iNKORE.UI.WPF/iNKORE.UI.WPF.csproj
+  FEED: https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Determine version
+        id: version
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -like 'refs/tags/v*') {
+            $v = $env:GITHUB_REF_NAME.Substring(1)
+          } else {
+            $v = "0.0.0-ci.$env:GITHUB_RUN_NUMBER"
+          }
+          "value=$v" >> $env:GITHUB_OUTPUT
+
+      - name: Pack
+        run: >
+          dotnet pack ${{ env.PROJECT }} -c Release -o artifacts
+          -p:Version=${{ steps.version.outputs.value }}
+          -p:RepositoryUrl=${{ github.server_url }}/${{ github.repository }}
+
+      - name: Push to GitHub Packages
+        run: >
+          dotnet nuget push "artifacts/*.nupkg"
+          --source ${{ env.FEED }}
+          --api-key ${{ secrets.GITHUB_TOKEN }}
+          --skip-duplicate
